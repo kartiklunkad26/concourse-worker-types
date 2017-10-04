@@ -1,0 +1,115 @@
+---
+instance_groups:
+- azs:
+  - z1
+  instances: 1
+  jobs:
+  - name: atc
+    properties:
+      basic_auth_password: pivotal
+      basic_auth_username: concourseadmin
+      external_url: http://stack-bbl-Concours-P8YECPDUW4PA-2022980525.us-east-1.elb.amazonaws.com
+      postgresql_database: atc
+    release: concourse
+  - name: tsa
+    properties: {}
+    release: concourse
+  name: web
+  networks:
+  - name: private
+  stemcell: trusty
+  vm_extensions:
+  - lb
+  vm_type: t2.small
+- azs:
+  - z1
+  instances: 1
+  jobs:
+  - name: postgresql
+    properties:
+      databases:
+      - name: atc
+        password: pivotal
+        role: atc
+    release: concourse
+  name: db
+  networks:
+  - name: private
+  persistent_disk_type: 5GB
+  stemcell: trusty
+  vm_type: t2.small
+- azs:
+  - z1
+  instances: 1
+  jobs:
+  - name: groundcrew
+    properties:
+      team: pcf-pipelines
+    consumes:
+      baggageclaim: {from: baggageclaim_new}
+    release: concourse
+  - name: baggageclaim
+    properties: {}
+    provides:
+      baggageclaim: {as: baggageclaim_new}
+    release: concourse
+  - name: garden
+    properties:
+      garden:
+        listen_address: 0.0.0.0:7777
+        listen_network: tcp
+    release: garden-runc
+  name: worker-pcf-pipelines
+  networks:
+  - name: private
+  stemcell: trusty
+  vm_extensions:
+  - 100GB_ephemeral_disk
+  vm_type: m4.xlarge
+- azs:
+  - z1
+  instances: 1
+  jobs:
+  - name: groundcrew
+    properties: {}
+    consumes:
+      baggageclaim: {from: baggageclaim_old}
+    release: concourse
+  - name: baggageclaim
+    properties: {}
+    provides:
+      baggageclaim: {as: baggageclaim_old}
+    release: concourse
+  - name: garden
+    properties:
+      garden:
+        listen_address: 0.0.0.0:7777
+        listen_network: tcp
+    release: garden-runc
+  name: worker
+  networks:
+  - name: private
+  stemcell: trusty
+  vm_extensions:
+  - 50GB_ephemeral_disk
+  vm_type: t2.small
+name: concourse
+releases:
+- name: concourse
+  sha1: 65a974b3831bb9908661a5ffffbe456e10185149
+  url: https://bosh.io/d/github.com/concourse/concourse
+  version: 3.5.0
+- name: garden-runc
+  sha1: a153fd2b9d85d01772e9c6907b8c9e5005059c9e
+  url: https://bosh.io/d/github.com/cloudfoundry/garden-runc-release
+  version: 1.9.3
+stemcells:
+- alias: trusty
+  os: ubuntu-trusty
+  version: '3363.9'
+update:
+  canaries: 1
+  canary_watch_time: 1000-60000
+  max_in_flight: 1
+  serial: false
+  update_watch_time: 1000-60000
